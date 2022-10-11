@@ -203,7 +203,7 @@ public class SocialSharing extends CordovaPlugin {
         cordova.getActivity().runOnUiThread(new Runnable() {
           public void run() {
             ComponentName componentName = emailAppLists.resolveActivity(cordova.getActivity().getPackageManager());
-            System.out.println("::::::::::::::::"+ componentName)
+            System.out.println("::::::::::::::::"+ componentName);
             if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
               cordova.startActivityForResult(plugin, emailAppLists, ACTIVITY_CODE_SENDVIAEMAIL);
             }
@@ -351,7 +351,7 @@ public class SocialSharing extends CordovaPlugin {
               cordova.getActivity().runOnUiThread(new Runnable() {
                 public void run() {
                   ComponentName componentName = sendIntent.resolveActivity(cordova.getActivity().getPackageManager());
-                  System.out.println("::::::::::::::::send intent"+ componentName)
+                  System.out.println("::::::::::::::::send intent"+ componentName);
                   if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
                     mycordova.startActivityForResult(plugin, sendIntent, 0);
                   }
@@ -389,7 +389,7 @@ public class SocialSharing extends CordovaPlugin {
                   chooseIntent = Intent.createChooser(sendIntent, chooserTitle);
                 }
                 ComponentName componentName = chooseIntent.resolveActivity(cordova.getActivity().getPackageManager());
-                System.out.println("::::::::::::::::choose intent"+ componentName)
+                System.out.println("::::::::::::::::choose intent"+ componentName);
                 if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
                   mycordova.startActivityForResult(plugin, chooseIntent, boolResult ? ACTIVITY_CODE_SEND__BOOLRESULT : ACTIVITY_CODE_SEND__OBJECT);
                 }
@@ -614,7 +614,7 @@ public class SocialSharing extends CordovaPlugin {
             public void run() {
               try {
                 ComponentName componentName = intent.resolveActivity(cordova.getActivity().getPackageManager());
-                System.out.println("::::::::::::::::intent"+ componentName)
+                System.out.println("::::::::::::::::intent"+ componentName);
                 if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
                   cordova.startActivityForResult(plugin, intent, ACTIVITY_CODE_SENDVIAWHATSAPP);
                 }
@@ -670,7 +670,7 @@ public class SocialSharing extends CordovaPlugin {
           intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
           ComponentName componentName = intent.resolveActivity(cordova.getActivity().getPackageManager());
-          System.out.println("::::::::::::::::intent2"+ componentName)
+          System.out.println("::::::::::::::::intent2"+ componentName);
           if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
             cordova.startActivityForResult(plugin, intent, 0);
           }
