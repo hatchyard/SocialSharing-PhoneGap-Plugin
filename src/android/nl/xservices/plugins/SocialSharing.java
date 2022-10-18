@@ -45,21 +45,9 @@ public class SocialSharing extends CordovaPlugin {
   private static final String ACTION_AVAILABLE_EVENT = "available";
   private static final String ACTION_SHARE_EVENT = "share";
   private static final String ACTION_SHARE_WITH_OPTIONS_EVENT = "shareWithOptions";
-  private static final String ACTION_CAN_SHARE_VIA = "canShareVia";
-  private static final String ACTION_CAN_SHARE_VIA_EMAIL = "canShareViaEmail";
-  private static final String ACTION_SHARE_VIA = "shareVia";
-  private static final String ACTION_SHARE_VIA_TWITTER_EVENT = "shareViaTwitter";
-  private static final String ACTION_SHARE_VIA_FACEBOOK_EVENT = "shareViaFacebook";
-  private static final String ACTION_SHARE_VIA_FACEBOOK_WITH_PASTEMESSAGEHINT = "shareViaFacebookWithPasteMessageHint";
-  private static final String ACTION_SHARE_VIA_WHATSAPP_EVENT = "shareViaWhatsApp";
-  private static final String ACTION_SHARE_VIA_INSTAGRAM_EVENT = "shareViaInstagram";
-  private static final String ACTION_SHARE_VIA_SMS_EVENT = "shareViaSMS";
-  private static final String ACTION_SHARE_VIA_EMAIL_EVENT = "shareViaEmail";
 
   private static final int ACTIVITY_CODE_SEND__BOOLRESULT = 1;
   private static final int ACTIVITY_CODE_SEND__OBJECT = 2;
-  private static final int ACTIVITY_CODE_SENDVIAEMAIL = 3;
-  private static final int ACTIVITY_CODE_SENDVIAWHATSAPP = 4;
 
   private CallbackContext _callbackContext;
 
@@ -80,140 +68,12 @@ public class SocialSharing extends CordovaPlugin {
     if (ACTION_AVAILABLE_EVENT.equals(action)) {
       callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
       return true;
-    } else if (ACTION_SHARE_EVENT.equals(action)) {
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), null, null, false, true);
     } else if (ACTION_SHARE_WITH_OPTIONS_EVENT.equals(action)) {
       return shareWithOptions(callbackContext, args.getJSONObject(0));
-    } else if (ACTION_SHARE_VIA_TWITTER_EVENT.equals(action)) {
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), "twitter", null, false, true);
-    } else if (ACTION_SHARE_VIA_FACEBOOK_EVENT.equals(action)) {
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.isNull(3) ? args.getJSONArray(2) : new JSONArray(), args.getString(3), "com.facebook.katana", null, false, true, "com.facebook.composer.shareintent");
-    } else if (ACTION_SHARE_VIA_FACEBOOK_WITH_PASTEMESSAGEHINT.equals(action)) {
-      this.pasteMessage = args.getString(4);
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.isNull(3) ? args.getJSONArray(2) : new JSONArray(), args.getString(3), "com.facebook.katana", null, false, true, "com.facebook.composer.shareintent");
-    } else if (ACTION_SHARE_VIA_WHATSAPP_EVENT.equals(action)) {
-      if (notEmpty(args.getString(4))) { // abid
-        return shareViaWhatsAppDirectly(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), args.getString(4));
-      } else if (notEmpty(args.getString(5))) { // phone
-        return shareViaWhatsAppDirectly(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), args.getString(5));
-      } else {
-        return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), "whatsapp", null, false, true);
-      }
-    } else if (ACTION_SHARE_VIA_INSTAGRAM_EVENT.equals(action)) {
-      if (notEmpty(args.getString(0))) {
-        copyHintToClipboard(args.getString(0), "Instagram paste message");
-      }
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), "com.instagram.android", null, false, true, "com.instagram.share.handleractivity.ShareHandlerActivity");
-    } else if (ACTION_CAN_SHARE_VIA.equals(action)) {
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), args.getString(4), null, true, true);
-    } else if (ACTION_CAN_SHARE_VIA_EMAIL.equals(action)) {
-      if (isEmailAvailable()) {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
-        return true;
-      } else {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, "not available"));
-        return false;
-      }
-    } else if (ACTION_SHARE_VIA.equals(action)) {
-      return doSendIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.getString(3), args.getString(4), null, false, true);
-    } else if (ACTION_SHARE_VIA_SMS_EVENT.equals(action)) {
-      return invokeSMSIntent(callbackContext, args.getJSONObject(0), args.getString(1));
-    } else if (ACTION_SHARE_VIA_EMAIL_EVENT.equals(action)) {
-      return invokeEmailIntent(callbackContext, args.getString(0), args.getString(1), args.getJSONArray(2), args.isNull(3) ? null : args.getJSONArray(3), args.isNull(4) ? null : args.getJSONArray(4), args.isNull(5) ? null : args.getJSONArray(5));
     } else {
       callbackContext.error("socialSharing." + action + " is not a supported function. Did you mean '" + ACTION_SHARE_EVENT + "'?");
       return false;
     }
-  }
-
-  private boolean isEmailAvailable() {
-    final Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", "someone@domain.com", null));
-    return cordova.getActivity().getPackageManager().queryIntentActivities(intent, 0).size() > 0;
-  }
-
-  private boolean invokeEmailIntent(final CallbackContext callbackContext, final String message, final String subject, final JSONArray to, final JSONArray cc, final JSONArray bcc, final JSONArray files) throws JSONException {
-
-    final SocialSharing plugin = this;
-    cordova.getThreadPool().execute(new SocialSharingRunnable(callbackContext) {
-      public void run() {
-        Intent draft = new Intent(Intent.ACTION_SENDTO);
-        if (notEmpty(message)) {
-          Pattern htmlPattern = Pattern.compile(".*\\<[^>]+>.*", Pattern.DOTALL);
-          if (htmlPattern.matcher(message).matches()) {
-            draft.putExtra(android.content.Intent.EXTRA_TEXT, Html.fromHtml(message));
-            draft.setType("text/html");
-          } else {
-            draft.putExtra(android.content.Intent.EXTRA_TEXT, message);
-            draft.setType("text/plain");
-          }
-        }
-        if (notEmpty(subject)) {
-          draft.putExtra(android.content.Intent.EXTRA_SUBJECT, subject);
-        }
-        try {
-          if (to != null && to.length() > 0) {
-            draft.putExtra(android.content.Intent.EXTRA_EMAIL, toStringArray(to));
-          }
-          if (cc != null && cc.length() > 0) {
-            draft.putExtra(android.content.Intent.EXTRA_CC, toStringArray(cc));
-          }
-          if (bcc != null && bcc.length() > 0) {
-            draft.putExtra(android.content.Intent.EXTRA_BCC, toStringArray(bcc));
-          }
-          if (files.length() > 0) {
-            final String dir = getDownloadDir();
-            if (dir != null) {
-              ArrayList<Uri> fileUris = new ArrayList<Uri>();
-              for (int i = 0; i < files.length(); i++) {
-                Uri fileUri = getFileUriAndSetType(draft, dir, files.getString(i), subject, i);
-                fileUri = FileProvider.getUriForFile(webView.getContext(), cordova.getActivity().getPackageName()+".sharing.provider", new File(fileUri.getPath()));
-                if (fileUri != null) {
-                  fileUris.add(fileUri);
-                }
-              }
-              if (!fileUris.isEmpty()) {
-                draft.putExtra(Intent.EXTRA_STREAM, fileUris);
-              }
-            }
-          }
-        } catch (Exception e) {
-          callbackContext.error(e.getMessage());
-          return;
-        }
-
-        // this was added to start the intent in a new window as suggested in #300 to prevent crashes upon return
-        draft.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        draft.setData(Uri.parse("mailto:"));
-
-        List<ResolveInfo> emailAppList = cordova.getActivity().getPackageManager().queryIntentActivities(draft, 0);
-
-        List<LabeledIntent> labeledIntentList = new ArrayList();
-        for (ResolveInfo info : emailAppList) {
-          draft.setAction(Intent.ACTION_SEND_MULTIPLE);
-          draft.setType("application/octet-stream");
-
-          draft.setComponent(new ComponentName(info.activityInfo.packageName, info.activityInfo.name));
-          labeledIntentList.add(new LabeledIntent(draft, info.activityInfo.packageName, info.loadLabel(cordova.getActivity().getPackageManager()), info.icon));
-        }
-        final Intent emailAppLists = Intent.createChooser(labeledIntentList.remove(labeledIntentList.size() - 1), "Choose Email App");
-        emailAppLists.putExtra(Intent.EXTRA_INITIAL_INTENTS, labeledIntentList.toArray(new LabeledIntent[labeledIntentList.size()]));
-
-        // as an experiment for #300 we're explicitly running it on the ui thread here
-        cordova.getActivity().runOnUiThread(new Runnable() {
-          public void run() {
-            ComponentName componentName = emailAppLists.resolveActivity(cordova.getActivity().getPackageManager());
-            System.out.println("::::::::::::::::"+ componentName);
-            if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
-              cordova.startActivityForResult(plugin, emailAppLists, ACTIVITY_CODE_SENDVIAEMAIL);
-            }
-
-          }
-        });
-      }
-    });
-
-    return true;
   }
 
   private String getDownloadDir() throws IOException {
@@ -330,50 +190,6 @@ public class SocialSharing extends CordovaPlugin {
         // this was added to start the intent in a new window as suggested in #300 to prevent crashes upon return
         sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-        if (appPackageName != null) {
-          String packageName = appPackageName;
-          String passedActivityName = null;
-          if (packageName.contains("/")) {
-            String[] items = appPackageName.split("/");
-            packageName = items[0];
-            passedActivityName = items[1];
-          }
-          final ActivityInfo activity = getActivity(callbackContext, sendIntent, packageName, appName);
-          if (activity != null) {
-            if (peek) {
-              callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
-            } else {
-              sendIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-              sendIntent.setComponent(new ComponentName(activity.applicationInfo.packageName,
-                  passedActivityName != null ? passedActivityName : activity.name));
-
-              // as an experiment for #300 we're explicitly running it on the ui thread here
-              cordova.getActivity().runOnUiThread(new Runnable() {
-                public void run() {
-                  ComponentName componentName = sendIntent.resolveActivity(cordova.getActivity().getPackageManager());
-                  System.out.println("::::::::::::::::send intent"+ componentName);
-                  if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
-                    mycordova.startActivityForResult(plugin, sendIntent, 0);
-                  }
-                }
-              });
-
-              if (pasteMessage != null) {
-                // add a little delay because target app (facebook only atm) needs to be started first
-                new Timer().schedule(new TimerTask() {
-                  public void run() {
-                    cordova.getActivity().runOnUiThread(new Runnable() {
-                      public void run() {
-                        copyHintToClipboard(msg, pasteMessage);
-                        showPasteMessage(pasteMessage);
-                      }
-                    });
-                  }
-                }, 2000);
-              }
-            }
-          }
-        } else {
           if (peek) {
             callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
           } else {
@@ -389,14 +205,12 @@ public class SocialSharing extends CordovaPlugin {
                   chooseIntent = Intent.createChooser(sendIntent, chooserTitle);
                 }
                 ComponentName componentName = chooseIntent.resolveActivity(cordova.getActivity().getPackageManager());
-                System.out.println("::::::::::::::::choose intent"+ componentName);
-                if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
+                if (componentName.getPackageName().equals("android") && componentName.getClassName().equals("com.android.internal.app.ChooserActivity")) {
                   mycordova.startActivityForResult(plugin, chooseIntent, boolResult ? ACTIVITY_CODE_SEND__BOOLRESULT : ACTIVITY_CODE_SEND__OBJECT);
                 }
               }
             });
           }
-        }
       }
     });
     return true;
@@ -586,113 +400,6 @@ public class SocialSharing extends CordovaPlugin {
     MIME_Map.put("z",     "application/x-compress");
     MIME_Map.put("zip",   "application/x-zip-compressed");
     MIME_Map.put("",       "*/*");
-  }
-
-  // sending files is not supported with ACTION_VIEW, and with ACTION_SEND the message doesn't get prefilled :(
-  private boolean shareViaWhatsAppDirectly(final CallbackContext callbackContext, String message, final String subject, final JSONArray files, final String url, final String number) {
-    // add the URL to the message, as there seems to be no separate field
-    if (notEmpty(url)) {
-      if (notEmpty(message)) {
-        message += " " + url;
-      } else {
-        message = url;
-      }
-    }
-    final String shareMessage = message;
-    final SocialSharing plugin = this;
-    cordova.getThreadPool().execute(new SocialSharingRunnable(callbackContext) {
-      public void run() {
-        final Intent intent = new Intent(Intent.ACTION_VIEW);
-        try {
-          intent.setData(Uri.parse("https://api.whatsapp.com/send?phone=" + number + "&text=" + URLEncoder.encode(shareMessage, "UTF-8")));
-          // this was added to start the intent in a new window as suggested in #300 to prevent crashes upon return
-          // update: didn't help (doesn't seem to hurt either though)
-          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-          // as an experiment for #300 we're explicitly running it on the ui thread here
-          cordova.getActivity().runOnUiThread(new Runnable() {
-            public void run() {
-              try {
-                ComponentName componentName = intent.resolveActivity(cordova.getActivity().getPackageManager());
-                System.out.println("::::::::::::::::intent"+ componentName);
-                if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
-                  cordova.startActivityForResult(plugin, intent, ACTIVITY_CODE_SENDVIAWHATSAPP);
-                }
-              } catch (Exception e) {
-                callbackContext.error(e.getMessage());
-              }
-            }
-          });
-        } catch (Exception e) {
-          callbackContext.error(e.getMessage());
-        }
-      }
-    });
-    return true;
-  }
-
-  private boolean invokeSMSIntent(final CallbackContext callbackContext, JSONObject options, String p_phonenumbers) {
-    final String message = options.optString("message");
-    // TODO test this on a real SMS enabled device before releasing it
-//    final String subject = options.optString("subject");
-//    final String image = options.optString("image");
-    final String subject = null; //options.optString("subject");
-    final String image = null; // options.optString("image");
-    final String phonenumbers = getPhoneNumbersWithManufacturerSpecificSeparators(p_phonenumbers);
-    final SocialSharing plugin = this;
-    cordova.getThreadPool().execute(new SocialSharingRunnable(callbackContext) {
-      public void run() {
-        Intent intent;
-
-        if (Build.VERSION.SDK_INT >= 19) { // Build.VERSION_CODES.KITKAT) {
-          // passing in no phonenumbers for kitkat may result in an error,
-          // but it may also work for some devices, so documentation will need to cover this case
-          intent = new Intent(Intent.ACTION_SENDTO);
-          intent.setData(Uri.parse("smsto:" + (notEmpty(phonenumbers) ? phonenumbers : "")));
-        } else {
-          intent = new Intent(Intent.ACTION_VIEW);
-          intent.setType("vnd.android-dir/mms-sms");
-          if (phonenumbers != null) {
-            intent.putExtra("address", phonenumbers);
-          }
-        }
-        intent.putExtra("sms_body", message);
-        intent.putExtra("sms_subject", subject);
-
-        try {
-          if (image != null && !"".equals(image)) {
-            final Uri fileUri = getFileUriAndSetType(intent, getDownloadDir(), image, subject, 0);
-            if (fileUri != null) {
-              intent.putExtra(Intent.EXTRA_STREAM, fileUri);
-            }
-          }
-          // this was added to start the intent in a new window as suggested in #300 to prevent crashes upon return
-          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-          ComponentName componentName = intent.resolveActivity(cordova.getActivity().getPackageManager());
-          System.out.println("::::::::::::::::intent2"+ componentName);
-          if (componentName.getPackageName().equals("com.google.android.gms") && componentName.getClassName().equals("com.google.android.gms.auth.api.phone.ui.UserConsentPromptActivity")) {
-            cordova.startActivityForResult(plugin, intent, 0);
-          }
-        } catch (Exception e) {
-          callbackContext.error(e.getMessage());
-        }
-      }
-    });
-    return true;
-  }
-
-  private static String getPhoneNumbersWithManufacturerSpecificSeparators(String phonenumbers) {
-    if (notEmpty(phonenumbers)) {
-      char separator;
-      if (android.os.Build.MANUFACTURER.equalsIgnoreCase("samsung")) {
-        separator = ',';
-      } else {
-        separator = ';';
-      }
-      return phonenumbers.replace(';', separator).replace(',', separator);
-    }
-    return null;
   }
 
   private ActivityInfo getActivity(final CallbackContext callbackContext, final Intent shareIntent, final String appPackageName, final String appName) {
